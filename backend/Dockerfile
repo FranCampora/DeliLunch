@@ -1,52 +1,51 @@
-# Stage 1: Construcción
+# Stage 1: Construcción (build de dependencias y código)
 FROM node:20-alpine AS build
-
 WORKDIR /app
 
-#COPIA SIN OPTIMIZACION FINAll
-    # Copiamos todo el proyecto al contexto de construcción del stage 1
-    #COPY . .
-
-    # Instalamos las dependencias
-    #RUN npm install
-
-#COPIA pero optimizada
+# Copiamos solo los archivos de dependencias para aprovechar la caché
 COPY package*.json ./
-#copia solo los archivos de dependencias de node primero, que estan marcadas en el json
-RUN npm ci 
-# ci es un comando de npm, mejor que install
+RUN npm ci
+
+# Copiamos el resto del código de la aplicación
 COPY . .
-#ahora si copio todo el code
 
-# Stage 2: Producción
+# Stage 2: Producción (imagen final optimizada)
 FROM node:20-alpine
-
 WORKDIR /app
 
-#Argumentos para newrelic 
+# Metadatos OCI de la imagen
+LABEL org.opencontainers.image.source="https://github.com/TpDevops2025/DeliLunch" \
+      org.opencontainers.image.description="DeliLunch Backend - Node.js API" \
+      org.opencontainers.image.authors="Magali Sarmiento" \
+      org.opencontainers.image.licenses="MIT"
+
+# Argumentos para inyectar configuración de New Relic
 ARG NEW_RELIC_APP_NAME
 ARG NEW_RELIC_LICENSE_KEY
-# Copiamos solo los archivos necesarios del stage 1 al stage 2
+
+# Copiamos el resultado del build al contenedor final
 COPY --from=build /app ./
 
+# Limpiamos caché de npm para reducir el tamaño de la imagen
 RUN npm cache clean --force
-#limpia el cache de archivos temporales 
 
-#VARIABLES DE ENTORNO OPTIMIZDAS -> 1 SOLA LINEA
-ENV NEW_RELIC_APP_NAME=$NEW_RELIC_APP_NAME \
-#Convertimos los argumentos en variables de entorno para que node los lea 
-#nombre de la app
+# Variables de entorno para producción y monitoreo
+ENV NODE_ENV=production \
+    NEW_RELIC_APP_NAME=$NEW_RELIC_APP_NAME \
     NEW_RELIC_LICENSE_KEY=$NEW_RELIC_LICENSE_KEY \
-#license key de la app
-# Configuracion de new relic solo con variables de entorno 
     NEW_RELIC_NO_CONFIG_FILE=true \
-#significa que va a correr el agente sin un file de config  - parametro dado por new relic
     NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true \
-#tracing activado - parametro dado por new relic
     NEW_RELIC_LOG=stdout \
-#logs a la consola - parametro dado por new relic
     PORT=4000
 
+# Damos permisos al usuario 'node' sobre la app
+RUN chown -R node:node /app
+
+# Ejecutamos la app con usuario sin privilegios
+USER node
+
+# Puerto de escucha del backend
 EXPOSE 4000
 
+# Comando de inicio del servidor
 CMD ["node", "server.js"]
