@@ -16,7 +16,7 @@ WORKDIR /app
 # Metadatos OCI de la imagen
 LABEL org.opencontainers.image.source="https://github.com/TpDevops2025/DeliLunch" \
       org.opencontainers.image.description="DeliLunch Backend - Node.js API" \
-      org.opencontainers.image.authors="Magali Sarmiento" \
+      org.opencontainers.image.authors="Francisco Campora" \
       org.opencontainers.image.licenses="MIT"
 
 # Argumentos para inyectar configuración de New Relic
